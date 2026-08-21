@@ -21,7 +21,13 @@ certified.
 - **[Monky](https://sleepmonky.com)** — a plush comfort companion that turns
   calming audio frequencies into vibration you feel rather than hear.
 
-Most application repos here are private while in development. The public ones are
+### Public code
+
+- **[swift-key-detection](https://github.com/kylel1213/swift-key-detection)** —
+  musical key detection in Swift. Chromagram analysis with Krumhansl-Kessler
+  profiles, on-device, Accelerate only. Extracted from SampleShot.
+
+Most application repos here are private while in development. The rest are
 support and legal pages for shipped apps.
 
 [audiokyle.io](https://audiokyle.io)
