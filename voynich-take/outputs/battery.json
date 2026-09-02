@@ -86,7 +86,7 @@
  {
   "check": "10 render voynich_take_full.wav",
   "target": "> 10 min, peak -6..-1 dBFS, RMS > -30 dBFS",
-  "measured": "27.6 min, peak -1.50 dBFS, RMS -18.4 dBFS, 44100 Hz 2ch",
+  "measured": "27.6 min, peak -1.50 dBFS, RMS -18.6 dBFS, 44100 Hz 2ch",
   "pass": true,
   "note": ""
  }

@@ -68,7 +68,7 @@ CC lanes embedded in the .mid files (and duplicated in `automation/*.csv`):
 | 7c void: final event mid-word, no trailing pad | glyph 2 of a >=3-glyph word; 0 ticks after | 'lol' glyph 2/3; 0 ticks after | PASS |
 | 8 forbidden register: GREEN_PAD/ROOT_BASS notes on 62 or 65 | 0 | 0 | PASS |
 | 9 MIDI integrity (reopen, PPQN 480, tempo 483,871, names, CC lanes) | all files clean | clean | PASS |
-| 10 render voynich_take_full.wav | > 10 min, peak -6..-1 dBFS, RMS > -30 dBFS | 27.6 min, peak -1.50 dBFS, RMS -18.4 dBFS, 44100 Hz 2ch | PASS |
+| 10 render voynich_take_full.wav | > 10 min, peak -6..-1 dBFS, RMS > -30 dBFS | 27.6 min, peak -1.50 dBFS, RMS -18.6 dBFS, 44100 Hz 2ch | PASS |
 
 **Overall: ALL PASS.**
 
