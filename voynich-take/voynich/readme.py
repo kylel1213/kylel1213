@@ -39,6 +39,11 @@ def write_readme(movements, results, outdir, used_fallback, corpus_counts):
              'It is ~300 MB and is **not committed to git**; `preview/voynich_take_full.mp3` (160 kbps) is the committed listening copy. '
              'Run the build to regenerate the WAV and the per-movement `preview/mvt1..5.wav`.\n')
 
+    L.append('## The visual\n')
+    L.append('`render_video.py` renders the Beinecke scans read aloud in sync with this WAV (1080p30 MP4): every sounding word lit on its real page, '
+             'pigments breathing with the pad and bass, the year-clock counting the zodiac labels, the nine rosette rings lit around the foldout, '
+             'every skipped page riffling past in order. Scans and word boxes are fetched with `python -m visual.fetch --data data --all` on a networked machine; '
+             'see the project README for the full procedure and the QA sheets.\n')
     L.append('## Movements\n')
     L.append('| # | movement | sections ($I) | folios used (of section) | bars | notes |')
     L.append('|---|---|---|---|---|---|')
