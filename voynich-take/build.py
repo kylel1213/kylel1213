@@ -24,6 +24,9 @@ def main():
     ap.add_argument('--out', default=os.path.join(HERE, 'outputs'))
     ap.add_argument('--no-render', action='store_true')
     ap.add_argument('--fallback', action='store_true', help='use the replica machine text')
+    ap.add_argument('--no-entrainment', action='store_true', help='omit the binaural / isochronic layers')
+    ap.add_argument('--band-mode', choices=['density', 'drift'], default='density',
+                    help='beat frequency: glyph rate x section density (default) or one theta->beta drift across the piece')
     ap.add_argument('--wav-to', default=None, help='also copy the full uncompressed WAV to this file or directory (e.g. an external drive)')
     args = ap.parse_args()
 
@@ -55,6 +58,13 @@ def main():
     fixes = enforce_no_reprise(movements)
     print('reprise fixes (mirrored words):', fixes)
     total = add_drift_lanes(movements)
+    if not args.no_entrainment:
+        from voynich.entrainment import compile_entrainment
+        g = 0
+        for m in movements:
+            compile_entrainment(m, args.band_mode, g, total)
+            g += m.length
+        print(f'entrainment layers compiled ({args.band_mode} mode)')
     print(f'total {total / BAR:.1f} bars = {total / 480 / BPM:.1f} min')
 
     out = args.out
@@ -66,6 +76,9 @@ def main():
         write_midi(m, p)
         midi_paths.append(p)
         write_csvs(m, os.path.join(out, 'automation'))
+        if m.entrainment:
+            from voynich.entrainment import write_entrainment_csv
+            write_entrainment_csv(m, os.path.join(out, 'automation', f"{m.number:02d}_{m.slug}_entrainment.csv"))
 
     from voynich.battery import run_battery, battery_markdown
     results = run_battery(movements, folios, midi_paths, out, used_fallback,

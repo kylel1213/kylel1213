@@ -12,6 +12,9 @@ INTENT = {
     'YEAR_CLOCK': 'dry, metronomic, un-produced woodblock. Zero humanization.',
     'ROSETTE_CANONS': 'nine instances of the SAME patch (same compass), different octaves.',
     'ATMOS_CTRL': 'no notes. CC1 = how much painting is on the page you are hearing.',
+    'BINAURAL_L': 'pure sine, hard-panned LEFT. Carrier = the sounding root, one octave up.',
+    'BINAURAL_R': 'the SAME sine patch, hard-panned RIGHT, pitch-bend range ±2 semitones: carries the beat.',
+    'ISOCHRONIC': 'pure sine one octave above the carrier, notes ARE the gate (50% duty); velocity = painting.',
 }
 
 
@@ -76,6 +79,35 @@ def write_readme(movements, results, outdir, used_fallback, corpus_counts):
         L.append(f'| {k} | {d} | {c1} | {c11} |')
     L.append('')
 
+    ent = movements[0].entrainment
+    if ent:
+        from .entrainment import GLYPH_HZ, band_of, iso_period_for
+        L.append('## Entrainment layers (binaural + isochronic)\n')
+        L.append(f"Mode: **{ent['mode']}**. The 124 BPM grid is already a brainwave clock: a quarter = 2.07 Hz (delta), "
+                 "an 8th = 4.13 Hz (theta, the year-clock pulse), a 16th = one glyph = 8.27 Hz (alpha), a 16th triplet = 12.4 Hz (low beta), "
+                 "a 32nd = 16.5 Hz (beta). Nothing is invented: tempo, section density, the paragraph roots and the painting lane are the only inputs.\n")
+        L.append('- **Binaural bed** (headphones): `BINAURAL_L` = carrier, `BINAURAL_R` = carrier + beat. Carrier = the sounding `ROOT_BASS` one octave up '
+                 '(D3 where no paragraph root sounds), so it changes per paragraph from the opening word. '
+                 + ('Beat = glyph rate × section density, morphing over 2 beats at folio boundaries like the CC lanes.' if ent['mode'] == 'density'
+                    else 'Beat = one theta→beta morph (4.13 → 16.53 Hz) across the whole piece on the A→B drift.'))
+        L.append('- **Isochronic gate** (speakers OK): a carrier one octave above the binaural carrier, gated at a grid subdivision chosen by section density, '
+                 'phase-locked to bar 1, raised-cosine 50% duty; its level rides the CC1 painting lane. The pulse is the visible page; the binaural is the invisible text.')
+        L.append('- The entrainment bands are a mapping, not a referent: the year-clock remains the only element that means anything.\n')
+        L.append('| section | density | binaural beat (Hz) | band | isochronic gate | Hz |')
+        L.append('|---|---|---|---|---|---|')
+        names = {240: '8th', 160: '8th triplet', 120: '16th', 80: '16th triplet'}
+        for k in 'HAZCBPST':
+            d = SECTION_PROFILE[k][0]
+            b = GLYPH_HZ * d
+            per = iso_period_for(d)
+            L.append(f'| {k} | {d} | {b:.2f} | {band_of(b)} | {names[per]} | {PPQN / per * BPM / 60:.2f} |')
+        L.append('')
+        L.append('**In Logic:** load the same pure-sine patch on `BINAURAL_L` and `BINAURAL_R`, pan them hard left / hard right, and set the pitch-bend range on the R instrument to ±2 semitones; '
+                 'the embedded pitch-bend on R is the beat, exact to 0.02 cent. `ISOCHRONIC` is plain notes on a sine: the notes are the gate. '
+                 'Or skip the MIDI and use the rendered stems `preview/binaural.wav` and `preview/isochronic.wav`, which are already at mix level. '
+                 '`automation/*_entrainment.csv` lists carrier Hz, beat Hz, band and gate rate against time for a Test Oscillator rebuild. '
+                 'Binaural content does not survive MP3 joint stereo well: the WAV is the listening copy. Rebuild with `--no-entrainment` for the plain take, `--band-mode drift` for the theta→beta version.\n')
+        L.append('> Caution: this piece contains sustained 4–16 Hz pulsed and beating audio. People with epilepsy or a seizure history, and anyone operating machinery, should not use entrainment audio. It is not a medical device.\n')
     L.append('## Acceptance battery\n')
     L.append(battery_markdown(results))
     L.append('')

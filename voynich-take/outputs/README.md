@@ -34,6 +34,9 @@ Folios are subsampled evenly within each section (never reordered) so each movem
 | 6 | `YEAR_CLOCK` | 6 | 115 | dry, metronomic, un-produced woodblock. Zero humanization. |
 | 7 | `ROSETTE_CANONS` | 7 | 11 | nine instances of the SAME patch (same compass), different octaves. |
 | 8 | `ATMOS_CTRL` | 8 | — | no notes. CC1 = how much painting is on the page you are hearing. |
+| 9 | `BINAURAL_L` | 9 | 78 | pure sine, hard-panned LEFT. Carrier = the sounding root, one octave up. |
+| 10 | `BINAURAL_R` | 10 | 78 | the SAME sine patch, hard-panned RIGHT, pitch-bend range ±2 semitones: carries the beat. |
+| 11 | `ISOCHRONIC` | 11 | 78 | pure sine one octave above the carrier, notes ARE the gate (50% duty); velocity = painting. |
 
 CC lanes embedded in the .mid files (and duplicated in `automation/*.csv`):
 
@@ -52,6 +55,29 @@ CC lanes embedded in the .mid files (and duplicated in `automation/*.csv`):
 | S | 1.0 | 30 | 15 |
 | T | 1.0 | 30 | 15 |
 
+## Entrainment layers (binaural + isochronic)
+
+Mode: **density**. The 124 BPM grid is already a brainwave clock: a quarter = 2.07 Hz (delta), an 8th = 4.13 Hz (theta, the year-clock pulse), a 16th = one glyph = 8.27 Hz (alpha), a 16th triplet = 12.4 Hz (low beta), a 32nd = 16.5 Hz (beta). Nothing is invented: tempo, section density, the paragraph roots and the painting lane are the only inputs.
+
+- **Binaural bed** (headphones): `BINAURAL_L` = carrier, `BINAURAL_R` = carrier + beat. Carrier = the sounding `ROOT_BASS` one octave up (D3 where no paragraph root sounds), so it changes per paragraph from the opening word. Beat = glyph rate × section density, morphing over 2 beats at folio boundaries like the CC lanes.
+- **Isochronic gate** (speakers OK): a carrier one octave above the binaural carrier, gated at a grid subdivision chosen by section density, phase-locked to bar 1, raised-cosine 50% duty; its level rides the CC1 painting lane. The pulse is the visible page; the binaural is the invisible text.
+- The entrainment bands are a mapping, not a referent: the year-clock remains the only element that means anything.
+
+| section | density | binaural beat (Hz) | band | isochronic gate | Hz |
+|---|---|---|---|---|---|
+| H | 0.55 | 4.55 | theta | 8th | 4.13 |
+| A | 0.8 | 6.61 | theta | 16th | 8.27 |
+| Z | 0.8 | 6.61 | theta | 16th | 8.27 |
+| C | 0.8 | 6.61 | theta | 16th | 8.27 |
+| B | 0.85 | 7.03 | theta | 16th | 8.27 |
+| P | 0.75 | 6.20 | theta | 8th triplet | 6.20 |
+| S | 1.0 | 8.27 | alpha | 16th triplet | 12.40 |
+| T | 1.0 | 8.27 | alpha | 16th triplet | 12.40 |
+
+**In Logic:** load the same pure-sine patch on `BINAURAL_L` and `BINAURAL_R`, pan them hard left / hard right, and set the pitch-bend range on the R instrument to ±2 semitones; the embedded pitch-bend on R is the beat, exact to 0.02 cent. `ISOCHRONIC` is plain notes on a sine: the notes are the gate. Or skip the MIDI and use the rendered stems `preview/binaural.wav` and `preview/isochronic.wav`, which are already at mix level. `automation/*_entrainment.csv` lists carrier Hz, beat Hz, band and gate rate against time for a Test Oscillator rebuild. Binaural content does not survive MP3 joint stereo well: the WAV is the listening copy. Rebuild with `--no-entrainment` for the plain take, `--band-mode drift` for the theta→beta version.
+
+> Caution: this piece contains sustained 4–16 Hz pulsed and beating audio. People with epilepsy or a seizure history, and anyone operating machinery, should not use entrainment audio. It is not a medical device.
+
 ## Acceptance battery
 
 | check | target | measured | result |
@@ -68,7 +94,9 @@ CC lanes embedded in the .mid files (and duplicated in `automation/*.csv`):
 | 7c void: final event mid-word, no trailing pad | glyph 2 of a >=3-glyph word; 0 ticks after | 'lol' glyph 2/3; 0 ticks after | PASS |
 | 8 forbidden register: GREEN_PAD/ROOT_BASS notes on 62 or 65 | 0 | 0 | PASS |
 | 9 MIDI integrity (reopen, PPQN 480, tempo 483,871, names, CC lanes) | all files clean | clean | PASS |
-| 10 render voynich_take_full.wav | > 10 min, peak -6..-1 dBFS, RMS > -30 dBFS | 27.6 min, peak -1.50 dBFS, RMS -18.6 dBFS, 44100 Hz 2ch | PASS |
+| 11 binaural: beat 2..20 Hz, carrier 60..320 Hz, R pitch-bend exact | 0 violations | 0 (beat 4.55..8.27 Hz, theta..alpha) | PASS |
+| 12 isochronic: every pulse on its grid subdivision, phase-locked | 0 off-grid | 0 of 11954 | PASS |
+| 10 render voynich_take_full.wav | > 10 min, peak -6..-1 dBFS, RMS > -30 dBFS | 27.6 min, peak -1.50 dBFS, RMS -17.0 dBFS, 44100 Hz 2ch | PASS |
 
 **Overall: ALL PASS.**
 

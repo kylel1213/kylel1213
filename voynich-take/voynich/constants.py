@@ -47,6 +47,9 @@ TRACKS = [
     ("YEAR_CLOCK",      6, 115),
     ("ROSETTE_CANONS",  7, 11),
     ("ATMOS_CTRL",      8, None),
+    ("BINAURAL_L",      9, 78),    # entrainment: carrier, left ear
+    ("BINAURAL_R",     10, 78),    # entrainment: carrier + beat, right ear (pitch bend, range +-2 st)
+    ("ISOCHRONIC",     11, 78),    # entrainment: gated carrier one octave up
 ]
 TRACK_CHANNEL = {n: ch for n, ch, _ in TRACKS}
 TRACK_PROGRAM = {n: pg for n, _, pg in TRACKS}

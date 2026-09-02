@@ -27,6 +27,9 @@ def write_midi(mvt, path):
             if c.track == name:
                 evs.append((c.tick, 0, Message('control_change', channel=ch0, control=c.cc,
                                               value=max(0, min(127, c.value)), time=c.tick)))
+        if name == 'BINAURAL_R' and getattr(mvt, 'entrainment', None):
+            for t, b in mvt.entrainment['bends']:
+                evs.append((t, 0, Message('pitchwheel', channel=ch0, pitch=max(-8192, min(8191, b)), time=t)))
         for n in mvt.notes:
             if n.track == name:
                 p = max(0, min(127, n.pitch))

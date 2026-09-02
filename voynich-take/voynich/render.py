@@ -24,7 +24,8 @@ NOISE_RMS_DBFS = -58.0          # at CC1 = 127; the lane scales it down from the
 # gain per track (linear), calibrated by calibrate(); 1.0 until calibrated
 TRACK_GAIN = {'PARAGRAPH_VOICE': 0.3188, 'LABEL_HITS': 0.4682, 'ROOT_BASS': 0.2103,
               'GREEN_PAD': 0.1161, 'BLUE_BELL': 0.2542, 'YEAR_CLOCK': 0.2696,
-              'ROSETTE_CANONS': 0.0932, 'ATMOS_CTRL': 0.0}
+              'ROSETTE_CANONS': 0.0932, 'ATMOS_CTRL': 0.0,
+              'BINAURAL_L': 0.0, 'BINAURAL_R': 0.0, 'ISOCHRONIC': 0.0}   # entrainment is rendered Hz-exact, not from notes
 SUSTAIN_TRACKS = {'GREEN_PAD': (0.35, 0.6), 'ROOT_BASS': (0.02, 0.35)}   # attack s, release s
 TRACK_DECAY = {'YEAR_CLOCK': 0.06, 'LABEL_HITS': 0.18, 'BLUE_BELL': 1.6}
 RELEASE = 0.12
@@ -129,7 +130,74 @@ def render_noise(mvt, n):
     return out
 
 
-def render_movement(mvt, tail=1.5, gains=None):
+BINAURAL_RMS_DBFS = -27.0       # per ear, constant
+ISO_RMS_DBFS = -28.0            # at CC1 = 127
+
+
+def _freq_track(mvt, n, octave_up=False):
+    """Instantaneous carrier frequency per sample, stepped per paragraph
+    with a 120 ms slew so the sine stays phase-continuous and click-free."""
+    from .entrainment import hz
+    f = np.zeros(n, dtype=np.float64)
+    for start, end, p in mvt.entrainment['carriers']:
+        s = int(start * SEC_PER_TICK * SR)
+        e = min(n, int(end * SEC_PER_TICK * SR))
+        f[s:e] = hz(p + (12 if octave_up else 0))
+    if n > 0:
+        f[e:] = f[e - 1] if e > 0 else f[0]
+    k = int(0.12 * SR)
+    cs = np.cumsum(np.concatenate([[0.0], f]))
+    f[k:] = (cs[k + 1:] - cs[1:-k]) / k
+    return f
+
+
+def render_entrainment(mvt, n):
+    """Return (binaural stereo, isochronic stereo) float32 buffers."""
+    from .entrainment import value_at
+    if not getattr(mvt, 'entrainment', None):
+        return None, None
+    e = mvt.entrainment
+    f = _freq_track(mvt, n)
+    # beat frequency per sample (piecewise linear between points)
+    xs = np.array([t * SEC_PER_TICK * SR for t, _ in e['beats']], dtype=np.float64)
+    ys = np.array([b for _, b in e['beats']], dtype=np.float64)
+    beat = np.interp(np.arange(n, dtype=np.float64), xs, ys)
+    phase_l = np.cumsum(2 * np.pi * f / SR)
+    phase_r = np.cumsum(2 * np.pi * (f + beat) / SR)
+    amp = 10 ** (BINAURAL_RMS_DBFS / 20) * math.sqrt(2)
+    fade = np.ones(n, dtype=np.float64)
+    fi = int(2.0 * SR)
+    fade[:fi] = np.linspace(0, 1, fi)
+    end_s = int(mvt.entrainment.get('cap', mvt.length) * SEC_PER_TICK * SR)
+    fo = int(0.005 * SR)                      # declick only: the take ends mid-gesture, no fade
+    if end_s < n:
+        fade[end_s:] = 0
+        fade[max(0, end_s - fo):end_s] *= np.linspace(1, 0, min(fo, end_s))
+    bin_ = np.empty((n, 2), dtype=np.float32)
+    bin_[:, 0] = (np.sin(phase_l) * amp * fade).astype(np.float32)
+    bin_[:, 1] = (np.sin(phase_r) * amp * fade).astype(np.float32)
+    # isochronic: octave-up carrier, raised-cosine 50% duty gate at the grid
+    f2 = _freq_track(mvt, n, octave_up=True)
+    phase2 = np.cumsum(2 * np.pi * f2 / SR)
+    gate = np.zeros(n, dtype=np.float64)
+    for start, end, period in e['iso']:
+        per_s = period * SEC_PER_TICK * SR
+        s = int(start * SEC_PER_TICK * SR)
+        en = min(n, int(end * SEC_PER_TICK * SR))
+        t = np.arange(s, en, dtype=np.float64)
+        ph = ((t - (start // period) * period * SEC_PER_TICK * SR) % per_s) / per_s   # 0..1, locked to bar 1
+        g = np.where(ph < 0.5, 0.5 - 0.5 * np.cos(2 * np.pi * ph * 2), 0.0)     # half period on, cosine-shaped
+        gate[s:en] = g
+    cc1 = _cc_curve(mvt, 'ATMOS_CTRL', 1, n, 0).astype(np.float64)
+    iso_amp = 10 ** (ISO_RMS_DBFS / 20) * 2.0          # gate duty + shape -> ~-28 dBFS RMS at full CC1
+    iso = (np.sin(phase2) * gate * cc1 * iso_amp * fade).astype(np.float32)
+    iso_st = np.empty((n, 2), dtype=np.float32)
+    iso_st[:, 0] = iso
+    iso_st[:, 1] = iso
+    return bin_, iso_st
+
+
+def render_movement(mvt, tail=1.5, gains=None, stems=None):
     gains = gains or TRACK_GAIN
     n = int(mvt.length * SEC_PER_TICK * SR) + int(tail * SR)
     buf = np.zeros((n, 2), dtype=np.float32)
@@ -138,6 +206,13 @@ def render_movement(mvt, tail=1.5, gains=None):
             continue
         buf += render_track(mvt, track, n) * gain
     buf += render_noise(mvt, n)
+    b, i = render_entrainment(mvt, n)
+    if b is not None:
+        buf += b
+        buf += i
+        if stems is not None:
+            stems['binaural'].append(b)
+            stems['isochronic'].append(i)
     return buf
 
 
@@ -190,8 +265,9 @@ def render_all(movements, outdir, mp3=True):
     os.makedirs(outdir, exist_ok=True)
     bufs = []
     peak = 0.0
+    stems = {'binaural': [], 'isochronic': []}
     for m in movements:
-        b = render_movement(m)
+        b = render_movement(m, stems=stems)
         bufs.append(b)
         peak = max(peak, float(np.abs(b).max()))
         print(f'  rendered {m.slug}: {b.shape[0] / SR / 60:.1f} min, peak {_db(float(np.abs(b).max())):.1f} dBFS, '
@@ -205,6 +281,10 @@ def render_all(movements, outdir, mp3=True):
         full.append(d16)
     full = np.concatenate(full)
     _write_wav(os.path.join(outdir, 'voynich_take_full.wav'), full)
+    for name, parts in stems.items():
+        if parts:
+            st = np.concatenate([np.clip(p * scale * 32767.0, -32768, 32767).astype('<i2') for p in parts])
+            _write_wav(os.path.join(outdir, f'{name}.wav'), st)
     if mp3:
         try:
             import lameenc

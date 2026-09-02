@@ -61,6 +61,7 @@ class Movement:
     selected_folios: list = field(default_factory=list)
     all_folios: list = field(default_factory=list)
     rankmap: object = None
+    entrainment: dict = None
 
     def notes_on(self, track):
         return [n for n in self.notes if n.track == track]

@@ -84,9 +84,23 @@
   "note": ""
  },
  {
+  "check": "11 binaural: beat 2..20 Hz, carrier 60..320 Hz, R pitch-bend exact",
+  "target": "0 violations",
+  "measured": "0 (beat 4.55..8.27 Hz, theta..alpha)",
+  "pass": true,
+  "note": ""
+ },
+ {
+  "check": "12 isochronic: every pulse on its grid subdivision, phase-locked",
+  "target": "0 off-grid",
+  "measured": "0 of 11954",
+  "pass": true,
+  "note": ""
+ },
+ {
   "check": "10 render voynich_take_full.wav",
   "target": "> 10 min, peak -6..-1 dBFS, RMS > -30 dBFS",
-  "measured": "27.6 min, peak -1.50 dBFS, RMS -18.6 dBFS, 44100 Hz 2ch",
+  "measured": "27.6 min, peak -1.50 dBFS, RMS -17.0 dBFS, 44100 Hz 2ch",
   "pass": true,
   "note": ""
  }

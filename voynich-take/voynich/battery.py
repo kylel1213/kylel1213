@@ -181,6 +181,42 @@ def run_battery(movements, folios, midi_paths, outdir, used_fallback, render_exp
     R.append(_row('9 MIDI integrity (reopen, PPQN 480, tempo 483,871, names, CC lanes)', 'all files clean',
                   'clean' if not problems else '; '.join(problems)[:300], not problems))
 
+    # 11/12 entrainment layers
+    if movements[0].entrainment:
+        from .entrainment import hz, value_at, band_of
+        bad_beat = bad_carrier = 0
+        lo_b, hi_b = 99, 0
+        for m in movements:
+            e = m.entrainment
+            for t, b in e['beats']:
+                lo_b, hi_b = min(lo_b, b), max(hi_b, b)
+                if not 2.0 <= b <= 20.0:
+                    bad_beat += 1
+            for s_, en, p in e['carriers']:
+                if not 60 <= hz(p) <= 320:
+                    bad_carrier += 1
+            # pitch bend must encode carrier+beat to < 0.05 Hz
+            for t, bend in e['bends']:
+                p = next(pp for s_, en, pp in e['carriers'] if s_ <= t < en)
+                f = hz(p)
+                f_r = f * 2 ** (bend / 8192 * 200 / 1200)
+                if abs((f_r - f) - value_at(e['beats'], t)) > 0.05:
+                    bad_beat += 1
+        R.append(_row('11 binaural: beat 2..20 Hz, carrier 60..320 Hz, R pitch-bend exact', '0 violations',
+                      f'{bad_beat + bad_carrier} (beat {lo_b:.2f}..{hi_b:.2f} Hz, {band_of(lo_b)}..{band_of(hi_b)})',
+                      bad_beat + bad_carrier == 0))
+        off_grid = 0
+        n_iso = 0
+        for m in movements:
+            for n in m.notes:
+                if n.track == 'ISOCHRONIC':
+                    n_iso += 1
+                    per = next((pp for s_, en, pp in m.entrainment['iso'] if s_ <= n.tick < en), None)
+                    if per is None or n.tick % per != 0:
+                        off_grid += 1
+        R.append(_row('12 isochronic: every pulse on its grid subdivision, phase-locked', '0 off-grid',
+                      f'{off_grid} of {n_iso}', off_grid == 0))
+
     # 10 render
     wav = os.path.join(outdir, 'preview', 'voynich_take_full.wav')
     if not render_expected:
@@ -203,6 +239,10 @@ def run_battery(movements, folios, midi_paths, outdir, used_fallback, render_exp
         pk = 20 * math.log10(peak) if peak else -999
         rms = 10 * math.log10(sq / cnt) if cnt else -999
         ok = dur > 600 and -6 <= pk <= -1 and rms > -30 and sr == 44100 and nch == 2
+        if movements[0].entrainment:
+            for stem in ('binaural', 'isochronic'):
+                if not os.path.exists(os.path.join(outdir, 'preview', stem + '.wav')):
+                    ok = False
         R.append(_row('10 render voynich_take_full.wav', '> 10 min, peak -6..-1 dBFS, RMS > -30 dBFS',
                       f'{dur / 60:.1f} min, peak {pk:.2f} dBFS, RMS {rms:.1f} dBFS, {sr} Hz {nch}ch', ok))
     return R
