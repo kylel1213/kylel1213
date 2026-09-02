@@ -20,6 +20,7 @@ import zipfile
 MANIFEST_CANDIDATES = [
     'https://collections.library.yale.edu/manifests/2002046',
     'https://collections.library.yale.edu/manifests/2002046.json',
+    'https://collections.library.yale.edu/catalog/2002046.json',      # Blacklight record: carries the manifest link
 ]
 VOYNICHESE_ZIP = 'http://www.voynichese.com/1/data/folio/voynichese_data.zip'
 UA = {'User-Agent': 'voynich-take/1.0 (research; public-domain scans)'}
@@ -98,22 +99,54 @@ def index_manifest(man):
     return out, unmatched
 
 
-def fetch_scans(data_dir, folios, all_folios=False):
+def _find_manifest_link(obj):
+    """Search a Blacklight/catalog JSON blob for an IIIF manifest URL."""
+    if isinstance(obj, str):
+        return obj if re.search(r'/manifests?/', obj) and obj.startswith('http') else None
+    if isinstance(obj, dict):
+        for v in obj.values():
+            r = _find_manifest_link(v)
+            if r:
+                return r
+    if isinstance(obj, list):
+        for v in obj:
+            r = _find_manifest_link(v)
+            if r:
+                return r
+    return None
+
+
+def load_manifest(manifest_url=None):
+    urls = [manifest_url] if manifest_url else MANIFEST_CANDIDATES
+    for url in urls:
+        try:
+            doc = json.loads(get(url, binary=False))
+        except Exception as e:
+            print('manifest failed:', url, e)
+            continue
+        if 'sequences' in doc or doc.get('type') == 'Manifest' or 'items' in doc:
+            return doc
+        link = _find_manifest_link(doc)
+        if link:
+            try:
+                return json.loads(get(link, binary=False))
+            except Exception as e:
+                print('manifest failed:', link, e)
+    return None
+
+
+def fetch_scans(data_dir, folios, all_folios=False, manifest_url=None):
     scans = os.path.join(data_dir, 'scans')
     os.makedirs(scans, exist_ok=True)
     idx_path = os.path.join(scans, 'manifest_index.json')
     if os.path.exists(idx_path):
         index = json.load(open(idx_path))
     else:
-        man = None
-        for url in MANIFEST_CANDIDATES:
-            try:
-                man = json.loads(get(url, binary=False))
-                break
-            except Exception as e:
-                print('manifest failed:', url, e)
+        man = load_manifest(manifest_url)
         if man is None:
-            sys.exit('could not fetch the IIIF manifest; download page images by hand into data/scans/<folio>.jpg')
+            sys.exit('could not fetch the IIIF manifest. Open https://collections.library.yale.edu/catalog/2002046, '
+                     'copy the IIIF manifest link and pass it with --manifest, or download page images by hand '
+                     'into data/scans/<folio>.jpg')
         matched, unmatched = index_manifest(man)
         index = {'matched': matched, 'unmatched': unmatched}
         json.dump(index, open(idx_path, 'w'), indent=1)
@@ -162,14 +195,29 @@ def main():
     ap.add_argument('--data', required=True)
     ap.add_argument('--folios', default='', help='comma-separated folio ids (default: from outputs/visual/cues.json)')
     ap.add_argument('--all', action='store_true', help='fetch every folio in the manifest (needed for the riffle)')
+    ap.add_argument('--manifest', default=None, help='IIIF manifest URL, if discovery fails')
+    ap.add_argument('--images-dir', default=None, help='a folder of images already named <folio>.jpg: copied into data/scans')
     args = ap.parse_args()
+    if args.images_dir:
+        import shutil
+        dst = os.path.join(args.data, 'scans')
+        os.makedirs(dst, exist_ok=True)
+        n = 0
+        for name in os.listdir(args.images_dir):
+            base, ext = os.path.splitext(name)
+            fid = norm_folio(base)
+            if fid and ext.lower() in ('.jpg', '.jpeg', '.png', '.tif', '.tiff'):
+                shutil.copyfile(os.path.join(args.images_dir, name), os.path.join(dst, fid + '.jpg')) if ext.lower() in ('.jpg', '.jpeg') \
+                    else __import__('PIL.Image').Image.open(os.path.join(args.images_dir, name)).convert('RGB').save(os.path.join(dst, fid + '.jpg'), quality=95)
+                n += 1
+        print(f'copied {n} images into {dst}')
     folios = [f for f in args.folios.split(',') if f]
     if not folios and not args.all:
         cues = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'outputs', 'visual', 'cues.json')
         if os.path.exists(cues):
             folios = json.load(open(cues))['needed_folios']
     fetch_voynichese(args.data)
-    fetch_scans(args.data, folios, all_folios=args.all)
+    fetch_scans(args.data, folios, all_folios=args.all, manifest_url=args.manifest)
 
 
 if __name__ == '__main__':
