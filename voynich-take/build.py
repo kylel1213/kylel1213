@@ -24,6 +24,7 @@ def main():
     ap.add_argument('--out', default=os.path.join(HERE, 'outputs'))
     ap.add_argument('--no-render', action='store_true')
     ap.add_argument('--fallback', action='store_true', help='use the replica machine text')
+    ap.add_argument('--wav-to', default=None, help='also copy the full uncompressed WAV to this file or directory (e.g. an external drive)')
     args = ap.parse_args()
 
     t0 = time.time()
@@ -73,6 +74,14 @@ def main():
         from voynich.render import render_all
         render_all(movements, os.path.join(out, 'preview'))
         results = run_battery(movements, folios, midi_paths, out, used_fallback, render_expected=True)
+
+    if args.wav_to and not args.no_render:
+        import shutil
+        dst = args.wav_to
+        if os.path.isdir(dst):
+            dst = os.path.join(dst, 'voynich_take_full.wav')
+        shutil.copyfile(os.path.join(out, 'preview', 'voynich_take_full.wav'), dst)
+        print('copied full WAV to', dst)
 
     from voynich.readme import write_readme
     write_readme(movements, results, out, used_fallback, (ntok, ntyp))

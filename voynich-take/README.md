@@ -23,6 +23,8 @@ git clone --depth 1 https://github.com/OrcusLabs/voynich.science.git vjson
 git clone --depth 1 https://github.com/alessandroplaca-uro/voynich-spatial-data.git spatial
 cd ..
 python build.py --data data            # ~2 min; --no-render skips the WAV
+# put the uncompressed WAV straight onto an external drive:
+python build.py --data data --wav-to "/Volumes/Extreme/"
 ```
 
 The build is deterministic (seed 408). If the transcription cannot be
