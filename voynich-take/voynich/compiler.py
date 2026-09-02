@@ -147,7 +147,7 @@ def layout(fols, density, rng, start_tick=0, para_offset=0):
             if end == line_end:      # a line that fills its container exactly
                 end = line_end
             lines.append(PlacedLine(fol.name, fol.section, line.locus, para_id,
-                                    line.para_start, cursor, end, wps))
+                                    line.para_start, cursor, end, wps, line.lineno))
             cursor = end
         if cursor == fstart:
             continue
@@ -229,7 +229,8 @@ def compile_paragraph_voice(lines, rankmap, rng, inertia_threshold=INERTIA_THRES
                 word_notes.append(Note(track, t, dur, p, v,
                                        {'kind': 'glyph', 'word': word, 'glyph': g,
                                         'gi': gi, 'n': len(word), 'folio': line.folio,
-                                        'wid': len(gesture_lengths),
+                                        'wid': len(gesture_lengths), 'lineno': line.lineno,
+                                        'wi': wp.idx_in_line,
                                         'para': line.para_id, 'line': id(line)}))
             # line-final m/g mute: damped fall at the barline
             if wp is last_wp and wp.idx_in_line == len(line.words) - 1:
@@ -285,7 +286,8 @@ def compile_label_hits(folio_spans, folios_by_name, rankmap, rng, exclude_locus=
     per_folio = []
     for fname, sec, start, end in folio_spans:
         fol = folios_by_name[fname]
-        labels = [w for l in fol.label_lines if l.locus not in exclude_locus for w in l.words]
+        labels = [(w, l.lineno, i) for l in fol.label_lines if l.locus not in exclude_locus
+                  for i, w in enumerate(l.words)]
         if labels:
             per_folio.append((fname, start, end, labels))
     if not per_folio:
@@ -298,16 +300,16 @@ def compile_label_hits(folio_spans, folios_by_name, rankmap, rng, exclude_locus=
             gaps = burst_gaps(len(labels) + 1, rng)
             total = sum(gaps)
             acc = 0.0
-            for w, g in zip(labels, gaps):
+            for (w, ln, wi), g in zip(labels, gaps):
                 acc += g
                 t = start + int(round(acc / total * span / SIXTEENTH)) * SIXTEENTH
-                ticks.append((min(t, end - SIXTEENTH), w, fname))
+                ticks.append((min(t, end - SIXTEENTH), w, fname, ln, wi))
         return ticks
 
     best, best_err = None, None
     for _ in range(max_tries):
         ticks = draw()
-        ts = sorted(t for t, _, _ in ticks)
+        ts = sorted(t for t, *_ in ticks)
         B = _burstiness([b - a for a, b in zip(ts, ts[1:]) if b > a])
         err = abs(B - target_B) if B is not None else 0.0
         if best is None or err < best_err:
@@ -316,7 +318,7 @@ def compile_label_hits(folio_spans, folios_by_name, rankmap, rng, exclude_locus=
             break
     notes = []
     stats = Counter()
-    for t, w, fname in best:
+    for t, w, fname, ln, wi in best:
         pitch = min(127, rankmap.pitch(w[0]) + 12)
         if bass_pc_at is not None:
             bpc = bass_pc_at(t)
@@ -326,7 +328,7 @@ def compile_label_hits(folio_spans, folios_by_name, rankmap, rng, exclude_locus=
         vel = 58 if w[0] == 'o' else 76
         stats['o_initial' if w[0] == 'o' else 'other'] += 1
         notes.append(Note(track, t, SIXTEENTH, pitch, vel,
-                          {'kind': 'label', 'word': w, 'folio': fname}))
+                          {'kind': 'label', 'word': w, 'folio': fname, 'lineno': ln, 'wi': wi}))
     notes.sort(key=lambda n: n.tick)
     stats['labels'] = len(notes)
     stats['burstiness_fit_error'] = round(best_err, 3)

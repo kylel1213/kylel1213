@@ -43,6 +43,7 @@ class PlacedLine:
     start: int         # bar-aligned start
     end: int           # next barline after last event
     words: list        # WordPlacement
+    lineno: str = ''   # transcription line number within the folio
 
 
 @dataclass

@@ -31,6 +31,25 @@ The build is deterministic (seed 408). If the transcription cannot be
 fetched, `--fallback` runs the replica machine (synthetic text) and the README
 says so loudly.
 
+## The visual: the manuscript, read aloud
+
+`render_video.py` renders a 1080p30 MP4 of the actual Beinecke scans, page by
+page, with every sounding word lit on the page in sync with the WAV. It needs
+the scans and the Voynichese word boxes, which must be fetched on a machine
+with normal internet access:
+
+```bash
+python build.py --data data                        # the audio (if not done yet)
+python -m visual.fetch --data data --all           # Yale IIIF scans (public domain) + voynichese_data.zip
+python render_video.py --data data --qa --jobs 6   # ~1 h at 1080p30 on a fast Mac
+```
+
+- `outputs/visual/qa/<folio>.jpg` shows every registered word box on its scan: check these once; put any correction in `data/registration_overrides.json` (`{"f10r": {"scale": .., "ox": .., "oy": ..}}`).
+- `--start 600 --duration 40 --frames 2` renders an excerpt with PNG stills for review; `--mock` uses generated stand-in pages (testing only, never the manuscript).
+- Camera: every page arrives whole; paragraph reading follows the line (zoom ≤ 1.6 screen px per scan px); circular pages, pharma pages, the rosettes foldout and the blue-bell window stay whole; the annotation strip and the year-clock inset appear in the zodiac and rosettes/recipes movements.
+- Mapping: PARAGRAPH_VOICE = the reading light on the real word box, glyph cursor at 16ths, trail fading over a bar; dropped words veiled (art displacing text); GREEN_PAD = the page's green pigment breathing with CC11; ROOT_BASS = the red-brown pigment pulsing at each paragraph root; LABEL_HITS = the label's box flashing; BLUE_BELL = the blue pigment flaring; YEAR_CLOCK = the zodiac ring inset counting its real labels in order; ROSETTE_CANONS = each ring's tokens lit around the ring in the ring's hue; isochronic = a 2.5 % frame breath at the gate rate; binaural = page edges alternating at the beat.
+- Riffle: between sonified folios every skipped page passes in manuscript order (~90 ms each), so the whole book is seen and the take is heard.
+
 ## Layout
 
 | file | role |
@@ -45,3 +64,11 @@ says so loudly.
 | `voynich/battery.py` | the acceptance battery (§9) |
 | `voynich/render.py` | pure-Python preview synth (numpy) + MP3 copy |
 | `voynich/replica.py` | fallback text generator (§8) |
+| `voynich/entrainment.py` | binaural / isochronic layers derived from the grid |
+| `voynich/pipeline.py` | one entry point that builds the five movements |
+| `visual/fetch.py` | Yale IIIF scans + Voynichese word boxes (run on a networked machine) |
+| `visual/geometry.py` | word-box alignment to TTLI, registration onto the scan, pigment masks, QA sheets |
+| `visual/cues.py` | the cue sheet (seconds) from the built movements |
+| `visual/render.py` | frame renderer: camera, layers, riffle, HUD |
+| `visual/mock.py` | stand-in pages for testing without the scans |
+| `render_video.py` | chunked parallel render + ffmpeg mux |

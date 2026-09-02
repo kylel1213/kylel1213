@@ -3,3 +3,10 @@ outputs/preview/*.wav
 __pycache__/
 *.pyc
 data/
+# visual build: scans, caches and renders are regenerated locally
+outputs/visual/*.mp4
+outputs/visual/geometry*/
+outputs/visual/segments/
+outputs/visual/stills/
+outputs/visual/qa/
+outputs/visual/segment_audio.wav

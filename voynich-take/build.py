@@ -31,41 +31,23 @@ def main():
     args = ap.parse_args()
 
     t0 = time.time()
-    trans = os.path.join(args.data, 'vjson', 'voynich_transcriptions.json')
-    used_fallback = False
-    if args.fallback or not os.path.exists(trans):
-        from voynich.replica import synthetic_corpus
-        folios = synthetic_corpus(random.Random(SEED))
-        used_fallback = True
+    from voynich.pipeline import build_movements
+    built = build_movements(args.data, band_mode=args.band_mode,
+                            entrainment=not args.no_entrainment, fallback=args.fallback)
+    movements, folios, used_fallback = built['movements'], built['folios'], built['used_fallback']
+    ntok, ntyp = built['corpus']
+    if used_fallback:
         print('!! transcription unavailable: using the replica machine (synthetic text)')
-    else:
-        folios = load_corpus(trans)
-    ntok, ntyp = corpus_stats(folios)
     print(f'corpus: {len(folios)} folios, {ntok} tokens, {ntyp} types')
-
-    ros = os.path.join(args.data, 'spatial', 'rosettes')
-    rings = load_rings(os.path.join(ros, 'polygons_f85v_86r.json'),
-                       os.path.join(ros, 'tokens_f85v_86r.csv'),
-                       os.path.join(ros, 'poly_transforms_f85v_86r.csv'))
-
-    movements = []
-    for spec in MOVEMENTS:
-        m = build_movement(spec, folios, rings=rings, rng=random.Random(SEED + spec[0]))
-        movements.append(m)
+    for m in movements:
         pv = m.stats['paragraph_voice']
         print(f"  {m.title}: {m.length / BAR:.1f} bars, {len(m.selected_folios)}/{len(m.all_folios)} folios, "
               f"{pv['words']} words rendered, {len(m.notes)} notes")
-    fixes = enforce_no_reprise(movements)
-    print('reprise fixes (mirrored words):', fixes)
-    total = add_drift_lanes(movements)
-    if not args.no_entrainment:
-        from voynich.entrainment import compile_entrainment
-        g = 0
-        for m in movements:
-            compile_entrainment(m, args.band_mode, g, total)
-            g += m.length
-        print(f'entrainment layers compiled ({args.band_mode} mode)')
+    print('reprise fixes (mirrored words):', built['fixes'])
+    total = built['total']
     print(f'total {total / BAR:.1f} bars = {total / 480 / BPM:.1f} min')
+    if not args.no_entrainment:
+        print(f'entrainment layers compiled ({args.band_mode} mode)')
 
     out = args.out
     for sub in ('midi', 'automation', 'preview'):

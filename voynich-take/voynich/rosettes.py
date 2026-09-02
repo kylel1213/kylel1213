@@ -35,11 +35,14 @@ def load_rings(polygons_path, tokens_path, transforms_path):
         r_in = (q['rxInner'] + q['ryInner']) / 2
         toks = tokens.get(q['id'], [])
         ordered = sorted(toks, key=lambda t: math.atan2(float(t['y_px']) - cy, float(t['x_px']) - cx))
-        words = [t['token'].lower() for t in ordered]
-        words = [''.join(ch for ch in w if 'a' <= ch <= 'z') for w in words]
-        words = [w for w in words if w]
+        words, xy = [], []
+        for t in ordered:
+            w = ''.join(ch for ch in t['token'].lower() if 'a' <= ch <= 'z')
+            if w:
+                words.append(w)
+                xy.append((float(t['x_px']), float(t['y_px']), float(t['angle_deg'] or 0)))
         rings.append({'id': q['id'], 'role': roles[q['id']], 'cx': cx, 'cy': cy,
-                      'r_out': r_out, 'r_in': r_in, 'words': words})
+                      'r_out': r_out, 'r_in': r_in, 'words': words, 'xy': xy})
     rings.sort(key=lambda r: r['id'])
     assert len(rings) == 9, len(rings)
     return rings
@@ -63,9 +66,9 @@ def compile_rosette_canons(rings, rankmap, rng, start_tick, bars=ROSETTE_BARS,
         # loop content
         loop = []                                # (offset, pitch, glyph, word)
         off = 0
-        for w in ring['words']:
+        for ti, w in enumerate(ring['words']):
             for g in w:
-                loop.append([off, pool_step(rankmap.pitch(g), shift), g, w])
+                loop.append([off, pool_step(rankmap.pitch(g), shift), g, w, ti])
                 off += SIXTEENTH
             off += SIXTEENTH
         loop_len = off - SIXTEENTH if loop else 0
@@ -84,13 +87,13 @@ def compile_rosette_canons(rings, rankmap, rng, start_tick, bars=ROSETTE_BARS,
             for _ in range(on_cycles):
                 if t >= end_tick:
                     break
-                for o, p, g, w in loop:
+                for o, p, g, w, ti in loop:
                     tt = t + o
                     if tt >= end_tick:
                         break
                     vel = int(max(20, min(120, round(VEL_BASE - 10 + rng.gauss(0, VEL_JITTER_SD)))))
                     notes.append(Note(track, max(0, tt + _jitter(rng)), NOTE_DUR, p, vel,
-                                      {'kind': 'ring', 'ring': ring['id'], 'word': w, 'glyph': g}))
+                                      {'kind': 'ring', 'ring': ring['id'], 'word': w, 'glyph': g, 'ti': ti}))
                 t += loop_len + SIXTEENTH
                 cycles_played += 1
             gap = burst_gaps(1, rng)[0] * loop_len
