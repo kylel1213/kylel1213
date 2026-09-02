@@ -1,0 +1,93 @@
+[
+ {
+  "check": "1 corpus check (tokens / types)",
+  "target": "36,906 / 8,434 (\u00b12%)",
+  "measured": "36,906 / 8,434",
+  "pass": true,
+  "note": ""
+ },
+ {
+  "check": "2 inertia: lag-1 autocorr of gesture lengths",
+  "target": "> 0 (target +0.08..+0.16)",
+  "measured": "+0.063",
+  "pass": true,
+  "note": "per movement 1:+0.065 2:+0.058 3:+0.024 4:-0.001 5:+0.119"
+ },
+ {
+  "check": "3 burstiness B of LABEL_HITS gaps (per-movement normalized, pooled)",
+  "target": "0.12 .. 0.30",
+  "measured": "+0.169 (n=42)",
+  "pass": true,
+  "note": "per movement 3:+0.19(n=9) 4:+0.16(n=33); raw pooled +0.34"
+ },
+ {
+  "check": "4a paragraph-flourish rate (gallows-initial, P paragraphs)",
+  "target": "80% .. 92%",
+  "measured": "91.9% (34/37)",
+  "pass": true,
+  "note": "word-driven, no dice"
+ },
+ {
+  "check": "4b line-final m/g mute rate",
+  "target": "15% .. 21%",
+  "measured": "17.3% (40/231)",
+  "pass": true,
+  "note": "word-driven, no dice"
+ },
+ {
+  "check": "5 blue budget: total / max in one 8-bar window",
+  "target": "<= 12 / >= 8 (C5,D5 only)",
+  "measured": "10 / 8",
+  "pass": true,
+  "note": ""
+ },
+ {
+  "check": "6 year-clock pulses / groups",
+  "target": "363 in 12 = [26, 37, 19, 22, 24, 32, 47, 30, 32, 34, 29, 31]",
+  "measured": "363 in 12 = [26, 37, 19, 22, 24, 32, 47, 30, 32, 34, 29, 31]",
+  "pass": true,
+  "note": "zero humanization"
+ },
+ {
+  "check": "7a void: 8-note pitch-class sequences shared across movements",
+  "target": "0",
+  "measured": "0",
+  "pass": true,
+  "note": ""
+ },
+ {
+  "check": "7b void: dominant->tonic root motions in GREEN_PAD",
+  "target": "0",
+  "measured": "0",
+  "pass": true,
+  "note": ""
+ },
+ {
+  "check": "7c void: final event mid-word, no trailing pad",
+  "target": "glyph 2 of a >=3-glyph word; 0 ticks after",
+  "measured": "'lol' glyph 2/3; 0 ticks after",
+  "pass": true,
+  "note": ""
+ },
+ {
+  "check": "8 forbidden register: GREEN_PAD/ROOT_BASS notes on 62 or 65",
+  "target": "0",
+  "measured": "0",
+  "pass": true,
+  "note": ""
+ },
+ {
+  "check": "9 MIDI integrity (reopen, PPQN 480, tempo 483,871, names, CC lanes)",
+  "target": "all files clean",
+  "measured": "clean",
+  "pass": true,
+  "note": ""
+ },
+ {
+  "check": "10 render voynich_take_full.wav",
+  "target": "> 10 min, peak -6..-1 dBFS, RMS > -30 dBFS",
+  "measured": "27.6 min, peak -1.50 dBFS, RMS -18.4 dBFS, 44100 Hz 2ch",
+  "pass": true,
+  "note": ""
+ }
+]

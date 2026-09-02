@@ -1,0 +1,5 @@
+# preview WAVs are ~300 MB total; regenerate with `python build.py --data <dir>`
+outputs/preview/*.wav
+__pycache__/
+*.pyc
+data/
