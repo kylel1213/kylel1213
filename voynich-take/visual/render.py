@@ -482,43 +482,79 @@ class Renderer:
         return img
 
     # ------------------------------------------------------------------ riffle
+    # ------------------------------------------------------------------ page turns
+    @staticmethod
+    def _smooth(u):
+        u = max(0.0, min(1.0, u))
+        return u * u * (3 - 2 * u)
+
+    def _book_rect(self, thumb, scale_h):
+        """Where a page sits when the book is framed: height = scale_h * H, centred."""
+        W, H = self.W, self.H
+        tw, th = thumb.size
+        s = (H * scale_h) / th
+        w, h = int(tw * s), int(th * s)
+        return (W // 2 - w // 2, H // 2 - h // 2, w, h)
+
+    def _turn(self, img, under, over, u, rect):
+        """Draw `under` flat, then `over` folding away at the left spine by u
+        (0 = flat, 1 = gone) with foreshortening and a cast shadow."""
+        x, y, w, h = rect
+        if under is not None:
+            img.paste(under.resize((w, h), Image.BILINEAR), (x, y))
+        if over is None or u >= 0.999:
+            return
+        ang = u * math.pi / 2
+        fw = max(1, int(w * math.cos(ang)))
+        # shadow on the page beneath, just right of the fold, strongest mid-turn
+        sh = int(0.10 * w * math.sin(ang) * (1 - u * 0.5)) + 1
+        if sh > 2 and x + fw < x + w:
+            band = img.crop((x + fw, y, min(x + fw + sh, x + w), y + h))
+            bw_, bh_ = band.size
+            grad = Image.fromarray(np.tile(np.linspace(215, 0, bw_, dtype=np.uint8)[None, :], (bh_, 1)))
+            dark = ImageEnhance.Brightness(band).enhance(0.55)
+            img.paste(Image.composite(dark, band, grad), (x + fw, y))
+        page = over.resize((fw, h), Image.BILINEAR)
+        page = ImageEnhance.Brightness(page).enhance(1 - 0.45 * math.sin(ang))
+        img.paste(page, (x, y))
+
     def draw_riffle(self, img, t, r):
+        """Every skipped page turns away in manuscript order; the last turn
+        reveals the target page, framed exactly as the establishing shot."""
         W, H = self.W, self.H
         skipped = r['skipped']
         lead = r['lead']
-        u = (t - (r['arrive'] - lead)) / lead          # 0..1
-        n = len(skipped)
-        if n == 0:
-            prev = self.current_span(r['arrive'] - lead - 0.01)
-            if prev:
-                page = self.page(prev['folio'])
-                cam = self.fit_cam(page)
-                cam = (cam[0] + u * page.size[0] * 1.2, cam[1], cam[2])
-                crop = page.crop(cam, W, H)
-                x0, y0, x1, y1 = page.screen_rect(cam, W, H)
-                if x1 > x0 and y1 > y0:
-                    part = ImageEnhance.Brightness(crop.crop((x0, y0, x1, y1))).enhance(1 - 0.5 * u)
-                    img.paste(part, (x0, y0))
+        u = (t - (r['arrive'] - lead)) / lead                 # 0..1 over the riffle
+        prev = self.current_span(r['arrive'] - lead - 0.01)
+        seq = ([prev['folio']] if (prev and not skipped) else []) + list(skipped) + [r['to']]
+        n_turns = len(seq) - 1
+        if n_turns <= 0:
             return
-        pos = u * n
-        i = min(n - 1, int(pos))
-        frac = pos - i
-        for k, off in ((i, 0.0), (i + 1, 1.0)):
-            if k >= n:
-                continue
-            thumb = self.thumb(skipped[k])
-            if thumb is None:
-                continue
-            tw, th = thumb.size
-            scale = min(W * 0.62 / tw, H * 0.86 / th)
-            tw2, th2 = int(tw * scale), int(th * scale)
-            x = int(W / 2 - tw2 / 2 + (off - frac) * W * 0.55)
-            y = int(H / 2 - th2 / 2)
-            im = thumb.resize((tw2, th2), Image.BILINEAR)
-            dim = 0.55 + 0.35 * (1 - abs(off - frac))
-            im = ImageEnhance.Brightness(im).enhance(dim)
-            img.paste(im, (x, y))
-        self._riffle_label = skipped[i]
+        eased = self._smooth(u)
+        pos = n_turns * eased
+        # motion blur: velocity of the eased position, in turns per frame
+        vel = n_turns * 6 * u * (1 - u) / lead / self.fps
+        push = 0.86 + (0.94 - 0.86) * eased                   # push-in lands on fit_cam's 0.94
+        target = self.thumb(r['to'])
+        rect = self._book_rect(target, push) if target else (W // 4, H // 12, W // 2, H * 5 // 6)
+        samples = 3 if vel > 0.05 else 1
+        acc = None
+        for k in range(samples):
+            p = pos + (k - (samples - 1) / 2) * vel / max(1, samples - 1) * 0.9
+            p = max(0.0, min(n_turns - 1e-6, p))
+            i = int(p)
+            frac = p - i
+            frame = Image.new('RGB', (W, H), tuple(int(v * 255) for v in TABLE))
+            under = self.thumb(seq[i + 1]) if i + 1 < len(seq) else None
+            over = self.thumb(seq[i])
+            self._turn(frame, under, over, self._smooth(frac), rect)
+            acc = frame if acc is None else Image.blend(acc, frame, 1.0 / (k + 1))
+        img.paste(acc, (0, 0))
+        # a faint edge under the book, so the stack reads as an object
+        x, y, w, h = rect
+        edge = Image.new('RGB', (w + 12, 6), (18, 15, 12))
+        img.paste(edge, (x - 6, y + h))
+        self._riffle_label = seq[min(n_turns - 1, int(pos))]
 
     def thumb(self, folio):
         if folio in self.thumbs:
