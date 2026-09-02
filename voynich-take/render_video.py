@@ -18,6 +18,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 
+def find_font(candidates):
+    """First existing font file (the HUD fonts differ per OS); None lets PIL fall back."""
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return None
+
+
 def ffmpeg_exe():
     import imageio_ffmpeg
     return imageio_ffmpeg.get_ffmpeg_exe()
@@ -124,7 +132,16 @@ def main():
     built, cues = prepare(args)
     scans, voy = ensure_pages(args, built, cues)
     geoms, geom_cache = build_geometries(args, built, cues, scans, voy)
-    fonts = {'eva': os.path.join(args.data, 'spatial', 'fonts', 'eva-placa.ttf')}
+    fonts = {'eva': os.path.join(args.data, 'spatial', 'fonts', 'eva-placa.ttf'),
+             'sans': find_font(['/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+                                '/System/Library/Fonts/Supplemental/DejaVuSans.ttf',
+                                '/System/Library/Fonts/Supplemental/Arial.ttf', '/Library/Fonts/Arial.ttf',
+                                'C:/Windows/Fonts/arial.ttf']),
+             'serif': find_font(['/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf',
+                                 '/System/Library/Fonts/Supplemental/DejaVuSerif.ttf',
+                                 '/System/Library/Fonts/Supplemental/Georgia.ttf',
+                                 '/System/Library/Fonts/Supplemental/Times New Roman.ttf',
+                                 'C:/Windows/Fonts/georgia.ttf'])}
     total = cues['total']
     start = args.start
     end = min(total, start + args.duration) if args.duration else total

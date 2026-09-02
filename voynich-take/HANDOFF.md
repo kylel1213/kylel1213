@@ -1,7 +1,36 @@
-# THE VOYNICH TAKE — handoff for a local session
+# THE VOYNICH TAKE — handoff
 
 Branch: `claude/voynich-sonification-build-sm0wyb` in `kylel1213/kylel1213`, folder `voynich-take/`.
-Previous session (cloud, no access to scans): https://claude.ai/code/session_01AFvstgTauVwXPVxJK8MRMa
+Sessions: cloud build (no access to scans) https://claude.ai/code/session_01AFvstgTauVwXPVxJK8MRMa, then a local session on 2026-09-02 that ran the real data end to end (§0).
+
+## 0. Local session, 2026-09-02: real scans, full render
+
+**Delivered** (on the drive, which mounts as `/Volumes/Extreme SSD`, not `/Volumes/Extreme`):
+
+- `/Volumes/Extreme SSD/VOYNICH_TAKE/voynich_take_full.wav` — 27.6 min, 44.1 kHz stereo, from `build.py` (battery: all 16 rows PASS; outputs byte-identical to the committed MIDI/CSV).
+- `/Volumes/Extreme SSD/VOYNICH_TAKE/voynich_take_1920x1080.mp4` — the full visual, 1080p30 H.264 + AAC, 1654.9 s, 1.2 GB, rendered in 52 min on a 10-core Mac (8 workers, ~2.2 fps each).
+
+**Data sources actually used**
+
+- Scans: the Yale IIIF manifest (`collections.library.yale.edu/manifests/2002046`, v3, 213 canvases, image API v2 at `/iiif/2/<id>/full/full/0/default.jpg`; `/full/3000,/` is refused with 403). Single pages are ~2800×3800 px. `visual/fetch.py --all` matched 197 folios by label; the PDF in `~/Downloads` (Voynich_Manuscript.pdf, 209 pages) was not used: its embedded scans are only ~1100×1536 px.
+- Foldout panels (47 transcription folios: f67–f73, f85/86, f89/90, f95, f101/102) are not separate Yale images; Yale photographs each foldout as a whole opening ("69v and 70r", "72v (part)"). **`visual/foldouts.py`** (new) downloads the 26 parent images, locates each panel's Voynichese boxes on its candidates and crops it at full resolution into `data/scans/<panel>.jpg` (`--install`). It uses the facts below: the panel frame is one page tall, and the panels of one opening tile it side by side (rectos left→right in numbering order, versos reversed), so every feasible assignment/order is scored with a windowed correlation. QA: `data/foldouts/qa/<parent>.jpg`, layout report `data/foldouts/report.json`.
+- Word boxes: `voynichese_data.zip` (715 KB; the http URL 301s to https) → `data/voynichese/data/<folio>.xml`, 225 files, panel names match the transcription (f70r1, f72v3, f95r2 …). No XML for f68v, f101r, f101r2, f101v, f101v1, f116v (riffle only).
+
+**Key finding that makes registration trivial**: the Voynichese frame of a folio is the Yale image scaled to 1500 px tall (widths agree within ~1–6 %; a few recipe versos are up to 16 % wider, i.e. the frame overhangs the photo on the left). So `scale ≈ scan_height / 1500` and the offset is near the origin (≤ ~7 %, plus overhang). `geometry.register()` now uses that prior with a windowed correlation instead of a free search; the free search locked onto plant drawings on real vellum.
+
+**Retuned for real vellum (`visual/geometry.py`)**
+
+- `ink_mask`: confined to the eroded vellum (Yale's black ground and the book edges are excluded); threshold relative to the *local* vellum brightness (4 % of the width box mean) with an adaptive floor so the darkest 4 % of the page always count (the zodiac versos f72v1–3 are extremely faint); green/blue/red pigment excluded by hue; thick blobs removed as before.
+- Rosettes (f85v_86r): the spatial-data frame has a different aspect than the photo (sx 2.44 vs sy 2.69 scan px per unit) → anisotropic fit (`reg['sy']`), then each ring is refitted rigidly (position + radius factor) with an annulus-edge template on a darkness map (`ring_fits`); fits that run to the search edge fall back to the global fit. Two rings are corrected by hand.
+- Manual corrections live in **`data/registration_overrides.json`** (used by `render_video.py`): `f85v_86r.ring_fits` for rings 27 and 23, and a full manual reg for f72v2 (faint page; used only by the year-clock inset). `f72v3` has a hand crop (`CROP_OVERRIDES` in `visual/foldouts.py`).
+- Every needed folio was checked on its QA sheet (`outputs/visual/qa/<folio>.jpg`): single pages, all panels used by the take (f67v1 f70r1 f70v1 f70v2 f72r1–3 f72v1–3 f95r2), and the nine rosette rings, all sit on their words. Registration `score` remains uninformative (0.02–0.08 for correct fits); use the sheets.
+
+**Known leftovers**
+
+- `f86v5` and `f86v6` were both placed on the same region of parent 1006230 (the 85/86 group has no clean tiling); one is wrong. Riffle-only (90 ms). Same caveat for the 89v/90 and 101/102 free-search placements.
+- `render_video.py` needed OS font fallbacks (DejaVu is a Linux path); it now picks Arial/Georgia on macOS (`find_font`).
+- Full render + `--jobs 8` writes ~1.2 GB; segments are deleted after the mux. The render log is buffered through `grep -v Warning`; watch `outputs/visual/segments/` for progress.
+- Local layout: `/Users/kylensch/Voynich Project/` holds the clone at `repo/`, a Python 3.14 venv at `venv/`, and the run logs.
 
 ## 1. Where things stand
 

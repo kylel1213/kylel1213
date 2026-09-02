@@ -135,9 +135,14 @@ class Renderer:
         self.pages = {}
         self.thumbs = thumbs or {}
         fonts = fonts or {}
-        self.font = ImageFont.truetype(fonts.get('sans', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'), 26)
-        self.font_small = ImageFont.truetype(fonts.get('sans', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'), 19)
-        self.font_title = ImageFont.truetype(fonts.get('serif', '/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf'), 40)
+        def tt(path, size):
+            try:
+                return ImageFont.truetype(path or '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', size)
+            except OSError:
+                return ImageFont.load_default(size)
+        self.font = tt(fonts.get('sans'), 26)
+        self.font_small = tt(fonts.get('sans'), 19)
+        self.font_title = tt(fonts.get('serif'), 40)
         self.font_eva = ImageFont.truetype(fonts['eva'], 44) if fonts.get('eva') else self.font
         self.cam = None
         self.last_t = None

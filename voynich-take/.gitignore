@@ -10,3 +10,6 @@ outputs/visual/segments/
 outputs/visual/stills/
 outputs/visual/qa/
 outputs/visual/segment_audio.wav
+
+# hand registration corrections are part of the build
+!data/registration_overrides.json
